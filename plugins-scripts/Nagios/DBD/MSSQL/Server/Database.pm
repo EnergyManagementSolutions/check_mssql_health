@@ -921,7 +921,7 @@ sub nagios {
         $params{mitigation} = $params{offlineok} ? 0 : defined $params{mitigation} ? $params{mitigation} : 1;
         $self->add_nagios(
             $params{mitigation},
-            sprintf("database %s is offline", $self->{name})
+            sprintf("db %s is offline", $self->{name})
         );
       } elsif (! $self->{accessible}) {
         $self->add_nagios(
@@ -936,7 +936,7 @@ sub nagios {
       } elsif ($params{units} eq "%") {
         $self->add_nagios(
             $self->check_thresholds($self->{free_percent}, "5:", "2:"),
-                sprintf("database %s has %.2f%% free space left",
+                sprintf("db %s has %.2f%% free space",
                 $self->{name}, $self->{free_percent},
                 ($self->{estimated} ? " (estim.)" : ""))
         );
@@ -950,14 +950,14 @@ sub nagios {
             (($self->{warn_mb} = $self->{warningrange}) =~ s/://g && $self->{warn_mb} || $self->{warningrange}) * $self->{max_mb} / 100,
             (($self->{crit_mb} = $self->{criticalrange}) =~ s/://g && $self->{crit_mb} || $self->{criticalrange}) * $self->{max_mb} / 100,
             $self->{max_mb});
-        $self->add_perfdata(sprintf "\'db_%s_allocated_pct\'=%.2f%%",
+        $self->add_perfdata(sprintf "\'db_%s_alloc_pct\'=%.2f%%",
             lc $self->{name},
             $self->{allocated_percent});
         if (exists $self->{free_log_percent}) {
           # sybase with extra transaction log device
           $self->add_nagios(
               $self->check_thresholds($self->{free_log_percent}, "5:", "2:"),
-                  sprintf("database %s has %.2f%% free log space left",
+                  sprintf("db %s has %.2f%% free log space",
                   $self->{name}, $self->{free_log_percent},
                   ($self->{estimated} ? " (estim.)" : ""))
           );
@@ -990,7 +990,7 @@ sub nagios {
         #$self->{criticalrange} = ($cnum / $factor).":";
         $self->add_nagios(
             $self->check_thresholds($self->{free_mb} / $factor, "5242880:", "1048576:"),
-                sprintf("database %s has %.2f%s free space left", $self->{name},
+                sprintf("db %s has %.2f%s free space", $self->{name},
                     $self->{free_mb} / $factor, $params{units})
         );
         $self->add_perfdata(sprintf "\'db_%s_free_pct\'=%.2f%%;%.2f:;%.2f:",
@@ -1003,14 +1003,14 @@ sub nagios {
             $self->{warningrange},
             $self->{criticalrange},
             $self->{max_mb} / $factor);
-        $self->add_perfdata(sprintf "\'db_%s_allocated_pct\'=%.2f%%",
+        $self->add_perfdata(sprintf "\'db_%s_alloc_pct\'=%.2f%%",
             lc $self->{name},
             $self->{allocated_percent});
         if (exists $self->{free_log_percent}) {
           # sybase with extra transaction log device
           $self->add_nagios(
               $self->check_thresholds($self->{free_log_mb} / $factor, "5:", "2:"),
-                  sprintf("database %s has %.2f%s free log space left",
+                  sprintf("db %s has %.2f%s free log space",
                   $self->{name}, $self->{free_log_mb} / $factor, $params{units})
           );
           $self->add_perfdata(sprintf "\'db_%s_free_log_pct\'=%.2f%%;%s;%s",
