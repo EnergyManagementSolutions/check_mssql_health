@@ -212,8 +212,10 @@ EOUS
        if mode database-free finds a database which is currently offline,
        a WARNING is issued. If you don't want this and if offline databases
        are perfectly ok for you, then add --offlineok. You will get OK instead.
-	--nooffline
-	   excludes offline databases from *backup-age modes
+    --nooffline
+       excludes offline databases from *backup-age modes
+    --notemp
+       excludes tempdb from list of checked databases
     --commit
        turns on autocommit for the dbd::sybase module
 
