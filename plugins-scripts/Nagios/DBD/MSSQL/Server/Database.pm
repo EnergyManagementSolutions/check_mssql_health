@@ -335,7 +335,7 @@ my %ERRORCODES=( 0 => 'OK', 1 => 'WARNING', 2 => 'CRITICAL', 3 => 'UNKNOWN' );
         } elsif (DBD::MSSQL::Server::return_first_server()->version_is_minimum("9.x")) {
           if ($params{mode} =~ /server::database::backupage/) {
             @databaseresult = $params{handle}->fetchall_array(q{
-              SELECT D.name AS [database_name], D.recovery_model, BS1.last_backup, BS1.last_duration
+              SELECT D.name AS [database_name], D.state, D.recovery_model, BS1.last_backup, BS1.last_duration
               FROM sys.databases D
               LEFT JOIN (
                 SELECT BS.[database_name],
@@ -349,7 +349,7 @@ my %ERRORCODES=( 0 => 'OK', 1 => 'WARNING', 2 => 'CRITICAL', 3 => 'UNKNOWN' );
             });
           } elsif ($params{mode} =~ /server::database::logbackupage/) {
             @databaseresult = $params{handle}->fetchall_array(q{
-              SELECT D.name AS [database_name], D.recovery_model, BS1.last_backup, BS1.last_duration
+              SELECT D.name AS [database_name], D.state, D.recovery_model, BS1.last_backup, BS1.last_duration
               FROM sys.databases D
               LEFT JOIN (
                 SELECT BS.[database_name],
@@ -366,6 +366,7 @@ my %ERRORCODES=( 0 => 'OK', 1 => 'WARNING', 2 => 'CRITICAL', 3 => 'UNKNOWN' );
           @databaseresult = $params{handle}->fetchall_array(q{
             SELECT
               a.name,
+			  c.state,
               CASE databasepropertyex(a.name, 'Recovery')
                 WHEN 'FULL' THEN 1
                 WHEN 'BULK_LOGGED' THEN 2
@@ -374,10 +375,11 @@ my %ERRORCODES=( 0 => 'OK', 1 => 'WARNING', 2 => 'CRITICAL', 3 => 'UNKNOWN' );
               END AS recovery_model,
               DATEDIFF(HH, MAX(b.backup_finish_date), GETDATE()),
               DATEDIFF(MI, MAX(b.backup_start_date), MAX(b.backup_finish_date))
-            FROM master.dbo.sysdatabases a LEFT OUTER JOIN msdb.dbo.backupset b
-            ON b.database_name = a.name
-            GROUP BY a.name 
-            ORDER BY a.name 
+            FROM master.dbo.sysdatabases a
+			LEFT OUTER JOIN msdb.dbo.backupset b ON b.database_name = a.name
+			LEFT OUTER JOIN sys.databases c ON c.name = a.name
+            GROUP BY a.name, c.state
+            ORDER BY a.name
           }); 
         }
         foreach (sort {
@@ -389,9 +391,10 @@ my %ERRORCODES=( 0 => 'OK', 1 => 'WARNING', 2 => 'CRITICAL', 3 => 'UNKNOWN' );
             return $a->[1] <=> $b->[1];
           }
         } @databaseresult) { 
-          my ($name, $recovery_model, $age, $duration) = @{$_};
+          my ($name, $state, $recovery_model, $age, $duration) = @{$_};
           next if $params{notemp} && $name eq "tempdb";
           next if $params{database} && $name ne $params{database};
+		  next if $params{nooffline} && isdboffline($state);
           if ($params{regexp}) { 
             next if $params{selectname} && $name !~ /$params{selectname}/;
           } else {
@@ -489,6 +492,20 @@ sub new {
   return $self;
 }
 
+sub isdboffline { 
+  my $state = shift(@_);
+  if (DBD::MSSQL::Server::return_first_server()->{product} eq "ASE") {
+    # 0x0010 offline
+    # 0x0020 offline until recovery completes
+    return $state & 0x0030;
+  } elsif (DBD::MSSQL::Server::return_first_server()->version_is_minimum("9.x")) {
+    return $state == 6 ? 1 : 0;
+  } else {
+    # bit 512 is offline
+    return $state & 0x0200;
+  }
+}
+
 sub init {
   my $self = shift;
   my %params = @_;
@@ -506,16 +523,7 @@ sub init {
       $self->add_nagios_critical("unable to aquire datafile info");
     }
   } elsif ($params{mode} =~ /server::database::databasefree/) {
-    if (DBD::MSSQL::Server::return_first_server()->{product} eq "ASE") {
-      # 0x0010 offline
-      # 0x0020 offline until recovery completes
-      $self->{offline} = $self->{state} & 0x0030;
-    } elsif (DBD::MSSQL::Server::return_first_server()->version_is_minimum("9.x")) {
-      $self->{offline} = $self->{state} == 6 ? 1 : 0;
-    } else {
-      # bit 512 is offline
-      $self->{offline} = $self->{state} & 0x0200;
-    }
+    $self->{offline} = isdboffline($self->{state});
     ###################################################################################
     #                            fuer's museum
     # 1> sp_spaceused

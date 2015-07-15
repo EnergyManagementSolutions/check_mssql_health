@@ -212,6 +212,8 @@ EOUS
        if mode database-free finds a database which is currently offline,
        a WARNING is issued. If you don't want this and if offline databases
        are perfectly ok for you, then add --offlineok. You will get OK instead.
+	--nooffline
+	   excludes offline databases from *backup-age modes
     --commit
        turns on autocommit for the dbd::sybase module
 
@@ -303,6 +305,7 @@ my @params = (
     "datafile=s",
     "waitevent=s",
     "offlineok",
+	"nooffline",
     "mitigation=s",
     "notemp",
     "name=s",
@@ -593,10 +596,9 @@ my %params = (
     tablespace => $commandline{tablespace},
     database => $commandline{database},
     datafile => $commandline{datafile},
-    offlineok => $commandline{offlineok},
-    mitigation => $commandline{mitigation},
     basis => $commandline{basis},
     offlineok => $commandline{offlineok},
+	nooffline => $commandline{nooffline},
     mitigation => $commandline{mitigation},
     notemp => $commandline{notemp},
     selectname => $commandline{name} || $commandline{tablespace} || $commandline{datafile},
